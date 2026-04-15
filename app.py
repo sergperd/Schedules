@@ -25,3 +25,16 @@ if section == "Inicio":
     st.write("Podrás registrar empleados, posiciones, turnos y luego visualizar la cobertura.")
     st.success("Base de datos inicializada correctamente.")
     st.info(f"Base de datos local: `{DB_PATH}`")
+
+elif section == "Empleados":
+    st.markdown("## Empleados")
+
+elif section == "Posiciones":
+    from modules.positions import render_positions_page
+    render_positions_page()
+
+elif section == "Turnos":
+    st.markdown("## Turnos")
+
+elif section == "Línea de tiempo":
+    st.markdown("## Línea de tiempo")
