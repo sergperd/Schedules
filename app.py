@@ -27,14 +27,17 @@ if section == "Inicio":
     st.info(f"Base de datos local: `{DB_PATH}`")
 
 elif section == "Empleados":
-    st.markdown("## Empleados")
+    from modules.employees import render_employees_page
+    render_employees_page()
 
 elif section == "Posiciones":
     from modules.positions import render_positions_page
     render_positions_page()
 
 elif section == "Turnos":
-    st.markdown("## Turnos")
+    from modules.schedule import render_schedule_page
+    render_schedule_page()
 
 elif section == "Línea de tiempo":
     st.markdown("## Línea de tiempo")
+    st.write("Aquí mostraremos visualmente la cobertura del día.")
