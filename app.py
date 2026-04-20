@@ -39,5 +39,5 @@ elif section == "Turnos":
     render_schedule_page()
 
 elif section == "Línea de tiempo":
-    st.markdown("## Línea de tiempo")
-    st.write("Aquí mostraremos visualmente la cobertura del día.")
+    from modules.timeline import render_timeline_page
+    render_timeline_page()
