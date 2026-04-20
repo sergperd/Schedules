@@ -1,6 +1,6 @@
 import streamlit as st
 from database.db import get_connection
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 import pandas as pd
 
 
@@ -13,6 +13,7 @@ def get_shifts_for_day(shift_date):
         FROM shifts
         JOIN employees ON shifts.employee_id = employees.id
         WHERE shift_date = ?
+        ORDER BY start_time
     """, (shift_date,))
 
     shifts = cursor.fetchall()
@@ -21,8 +22,16 @@ def get_shifts_for_day(shift_date):
 
 
 def generate_timeline(shifts):
-    hours = list(range(6, 24))  # 6 AM → 11 PM
-    timeline = {h: 0 for h in hours}
+    if not shifts:
+        return {}
+
+    start_hours = [int(shift["start_time"].split(":")[0]) for shift in shifts]
+    end_hours = [int(shift["end_time"].split(":")[0]) for shift in shifts]
+
+    min_hour = min(start_hours)
+    max_hour = max(end_hours)
+
+    timeline = {h: 0 for h in range(min_hour, max_hour + 1)}
 
     for shift in shifts:
         start = int(shift["start_time"].split(":")[0])
