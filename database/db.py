@@ -1,16 +1,13 @@
 import sqlite3
 from pathlib import Path
 
-# Ruta absoluta al archivo de base de datos
+# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "schedules.db"
 
 
 def get_connection():
-    """
-    Crea y devuelve una conexión a la base de datos SQLite.
-    """
     DATA_DIR.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -18,46 +15,19 @@ def get_connection():
 
 
 def init_db():
-    """
-    Crea las tablas principales de la app si no existen.
-    """
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS areas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS positions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            area_id INTEGER NOT NULL,
-            FOREIGN KEY (area_id) REFERENCES areas (id)
-        )
-    """)
-
+    # Tabla de empleados
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            notes TEXT
+            role_type TEXT NOT NULL CHECK(role_type IN ('Cocina', 'Servicio', 'Ambos'))
         )
     """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS employee_positions (
-            employee_id INTEGER NOT NULL,
-            position_id INTEGER NOT NULL,
-            PRIMARY KEY (employee_id, position_id),
-            FOREIGN KEY (employee_id) REFERENCES employees (id),
-            FOREIGN KEY (position_id) REFERENCES positions (id)
-        )
-    """)
-
+    # Tabla de turnos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,11 +35,20 @@ def init_db():
             shift_date TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
-            break_start TEXT,
-            break_end TEXT,
-            assigned_position_id INTEGER,
-            FOREIGN KEY (employee_id) REFERENCES employees (id),
-            FOREIGN KEY (assigned_position_id) REFERENCES positions (id)
+            coverage_type TEXT NOT NULL CHECK(coverage_type IN ('Cocina', 'Servicio', 'Ambos')),
+            FOREIGN KEY (employee_id) REFERENCES employees (id)
+        )
+    """)
+
+    # Tabla de asignaciones por hora
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS shift_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            hour INTEGER NOT NULL,
+            position TEXT NOT NULL,
+            FOREIGN KEY (employee_id) REFERENCES employees (id)
         )
     """)
 
@@ -77,20 +56,59 @@ def init_db():
     conn.close()
 
 
-def seed_initial_data():
-    """
-    Inserta las áreas base si no existen.
-    """
+def reset_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    default_areas = ["Servicio", "Cocina"]
-
-    for area in default_areas:
-        cursor.execute("""
-            INSERT OR IGNORE INTO areas (name)
-            VALUES (?)
-        """, (area,))
+    cursor.execute("DROP TABLE IF EXISTS shift_assignments")
+    cursor.execute("DROP TABLE IF EXISTS shifts")
+    cursor.execute("DROP TABLE IF EXISTS employees")
 
     conn.commit()
     conn.close()
+
+    init_db()
+
+
+def assign_position(employee_id, date, hour, position):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM shift_assignments
+        WHERE employee_id = ? AND date = ? AND hour = ?
+    """, (employee_id, date, hour))
+
+    cursor.execute("""
+        INSERT INTO shift_assignments (employee_id, date, hour, position)
+        VALUES (?, ?, ?, ?)
+    """, (employee_id, date, hour, position))
+
+    conn.commit()
+    conn.close()
+
+
+def get_assignments(date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT employee_id, hour, position
+        FROM shift_assignments
+        WHERE date = ?
+    """, (date,))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def get_employees():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name FROM employees")
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
