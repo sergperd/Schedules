@@ -45,17 +45,20 @@ def render_schedule_page():
         key="new_shift_coverage"
     )
 
+    note = st.text_input("Nota del turno (opcional)", key="new_shift_note")
+
     if st.button("Guardar turno"):
         try:
             cursor.execute("""
-                INSERT INTO shifts (employee_id, shift_date, start_time, end_time, coverage_type)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO shifts (employee_id, shift_date, start_time, end_time, coverage_type, note)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 employee_options[selected_employee_label],
                 str(shift_date),
                 str(start_time),
                 str(end_time),
-                coverage_type
+                coverage_type,
+                note
             ))
             conn.commit()
             st.success("Turno guardado correctamente.")
@@ -75,7 +78,8 @@ def render_schedule_page():
             shifts.shift_date,
             shifts.start_time,
             shifts.end_time,
-            shifts.coverage_type
+            shifts.coverage_type,
+            shifts.note
         FROM shifts
         JOIN employees ON shifts.employee_id = employees.id
         ORDER BY shifts.shift_date, shifts.start_time, employees.name
@@ -140,6 +144,12 @@ def render_schedule_page():
                 key=f"coverage_{shift['id']}"
             )
 
+            edited_note = st.text_input(
+                "Nota del turno",
+                value=shift["note"] if shift["note"] else "",
+                key=f"note_{shift['id']}"
+            )
+
             col1, col2 = st.columns(2)
 
             with col1:
@@ -147,7 +157,7 @@ def render_schedule_page():
                     try:
                         cursor.execute("""
                             UPDATE shifts
-                            SET employee_id = ?, shift_date = ?, start_time = ?, end_time = ?, coverage_type = ?
+                            SET employee_id = ?, shift_date = ?, start_time = ?, end_time = ?, coverage_type = ?, note = ?
                             WHERE id = ?
                         """, (
                             label_to_employee_id[edited_employee_label],
@@ -155,6 +165,7 @@ def render_schedule_page():
                             str(edited_start),
                             str(edited_end),
                             edited_coverage,
+                            edited_note,
                             shift["id"]
                         ))
                         conn.commit()

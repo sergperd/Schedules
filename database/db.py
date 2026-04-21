@@ -1,7 +1,6 @@
 import sqlite3
 from pathlib import Path
 
-# Ruta base del proyecto
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "schedules.db"
@@ -18,7 +17,6 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Tabla de empleados
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,7 +25,6 @@ def init_db():
         )
     """)
 
-    # Tabla de turnos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,79 +33,51 @@ def init_db():
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
             coverage_type TEXT NOT NULL CHECK(coverage_type IN ('Cocina', 'Servicio', 'Ambos')),
+            note TEXT DEFAULT '',
             FOREIGN KEY (employee_id) REFERENCES employees (id)
         )
     """)
 
-    # Tabla de asignaciones por hora
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS shift_assignments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id INTEGER NOT NULL,
-            date TEXT NOT NULL,
-            hour INTEGER NOT NULL,
-            position TEXT NOT NULL,
-            FOREIGN KEY (employee_id) REFERENCES employees (id)
-        )
-    """)
+    # Si la tabla ya existía sin la columna note, intentamos agregarla
+    try:
+        cursor.execute("ALTER TABLE shifts ADD COLUMN note TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
 
-
-def reset_db():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("DROP TABLE IF EXISTS shift_assignments")
-    cursor.execute("DROP TABLE IF EXISTS shifts")
-    cursor.execute("DROP TABLE IF EXISTS employees")
-
-    conn.commit()
-    conn.close()
-
-    init_db()
-
-
-def assign_position(employee_id, date, hour, position):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        DELETE FROM shift_assignments
-        WHERE employee_id = ? AND date = ? AND hour = ?
-    """, (employee_id, date, hour))
-
-    cursor.execute("""
-        INSERT INTO shift_assignments (employee_id, date, hour, position)
-        VALUES (?, ?, ?, ?)
-    """, (employee_id, date, hour, position))
-
-    conn.commit()
-    conn.close()
-
-
-def get_assignments(date):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT employee_id, hour, position
-        FROM shift_assignments
-        WHERE date = ?
-    """, (date,))
-
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
 
 def get_employees():
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT id, name, role_type FROM employees ORDER BY name")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
-    cursor.execute("SELECT id, name FROM employees")
+
+def get_shifts_for_date(selected_date):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            shifts.id,
+            shifts.employee_id,
+            employees.name,
+            employees.role_type,
+            shifts.shift_date,
+            shifts.start_time,
+            shifts.end_time,
+            shifts.coverage_type,
+            shifts.note
+        FROM shifts
+        JOIN employees ON shifts.employee_id = employees.id
+        WHERE shifts.shift_date = ?
+        ORDER BY shifts.start_time, employees.name
+    """, (str(selected_date),))
 
     rows = cursor.fetchall()
     conn.close()
-
     return rows

@@ -2,30 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from datetime import date, timedelta, datetime
-from database.db import get_connection
-
-
-def get_shifts_for_date(selected_date):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT
-            shifts.id,
-            employees.name,
-            shifts.shift_date,
-            shifts.start_time,
-            shifts.end_time,
-            shifts.coverage_type
-        FROM shifts
-        JOIN employees ON shifts.employee_id = employees.id
-        WHERE shifts.shift_date = ?
-        ORDER BY shifts.start_time, employees.name
-    """, (str(selected_date),))
-
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
+from database.db import get_shifts_for_date
 
 
 def parse_datetime(shift_date, time_str):
@@ -45,7 +22,8 @@ def build_chart_dataframe(shifts):
             "Fin": end_dt,
             "Cobertura": shift["coverage_type"],
             "HoraInicio": shift["start_time"][:5],
-            "HoraFin": shift["end_time"][:5]
+            "HoraFin": shift["end_time"][:5],
+            "TextoBarra": shift["note"] if shift["note"] else ""
         })
 
     return pd.DataFrame(data)
@@ -120,11 +98,20 @@ def render_timeline_page():
         x_end="Fin",
         y="Empleado",
         color="Cobertura",
+        text="TextoBarra",
         color_discrete_map={
             "Cocina": "#f1c232",
             "Servicio": "#93c47d",
             "Ambos": "#6fa8dc"
         }
+    )
+
+    fig.update_traces(
+        textposition="inside",
+        insidetextanchor="middle",
+        textfont=dict(color="black", size=12),
+        marker_line_color="rgba(0,0,0,0.25)",
+        marker_line_width=1
     )
 
     for _, row in chart_df.iterrows():
@@ -148,12 +135,31 @@ def render_timeline_page():
             font=dict(color="black", size=12)
         )
 
-    fig.update_yaxes(autorange="reversed")
+    fig.update_yaxes(
+        autorange="reversed",
+        showgrid=True,
+        gridcolor="rgba(120,120,120,0.15)",
+        gridwidth=1
+    )
+
+    fig.update_xaxes(
+        title="Hora",
+        tickformat="%H:%M",
+        dtick=3600000,
+        showgrid=True,
+        gridcolor="rgba(80,80,80,0.35)",
+        gridwidth=1,
+        ticks="outside",
+        ticklen=6
+    )
+
     fig.update_layout(
-        xaxis_title="Hora",
         yaxis_title="Empleado",
         legend_title="Cobertura",
-        height=600
+        height=650,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=20, r=20, t=20, b=20)
     )
 
     st.plotly_chart(fig, use_container_width=True)
